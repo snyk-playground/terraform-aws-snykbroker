@@ -17,8 +17,8 @@ module "snykbroker" {
     "PORT"              = "8000"
     "BROKER_CLIENT_URL" = "http://broker:8000"
   }
-  "dockerhub_username" = "<dockerhub_username>"
-  "dockerhub_access_token" = "<dockerhub_access_token>"
+  dockerhub_username = "<dockerhub_username>"
+  dockerhub_access_token = "<dockerhub_access_token>"
 }
 ```
 Invoke the commands defined below to create the Fargate Service and launch the corresponding SnykBroker dockerized container.
