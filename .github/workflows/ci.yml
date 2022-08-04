@@ -43,10 +43,10 @@ jobs:
         continue-on-error: true
       - name: Terraform init
         id: init
-        run: terraform init -backend-config=env/${{ github.env }}/config.s3.tfbackend -upgrade=true -no-color -input=false
+        run: terraform init -backend-config=env/dev/config.s3.tfbackend -upgrade=true -no-color -input=false
       - name: Terraform plan
         id: plan
-        run: terraform plan -input=false -var-file="env/${{ github.env }}/terraform.tfvars" -no-color -out=tfplan
+        run: terraform plan -input=false -var-file="env/dev/terraform.tfvars" -no-color -out=tfplan
       - name: Terraform commands output
         id: tf_cmd_output
         run: |
@@ -146,7 +146,7 @@ jobs:
           secret: ${{ github.TOKEN }}
           approvers: gwnlng
           minimum-approvals: 1
-          issue-title: "Apply terraform IaC to ${{ github.env }}"
+          issue-title: "Apply terraform IaC to dev"
       - name: Download tfplan
         uses: actions/download-artifact@v3
         with:
@@ -156,7 +156,7 @@ jobs:
           terraform_wrapper: false
       - name: Terraform init
         id: init
-        run: terraform init -backend-config=env/${{ github.env }}/config.s3.tfbackend -upgrade=true -no-color -input=false
+        run: terraform init -backend-config=env/dev/config.s3.tfbackend -upgrade=true -no-color -input=false
       - name: Terraform apply
         id: apply
         run: terraform apply "tfplan"
