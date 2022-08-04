@@ -21,15 +21,19 @@ jobs:
     environment:
       name: dev
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
       TF_VAR_dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
       TF_VAR_dockerhub_access_token: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+      TF_VAR_broker_env_vars: ${{ secrets.BROKER_ENV_VARS }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
@@ -42,7 +46,7 @@ jobs:
         run: terraform init -backend-config=env/${{ github.env }}/config.s3.tfbackend -upgrade=true -no-color -input=false
       - name: Terraform plan
         id: plan
-        run: terraform plan -input=false -var integration_type="${{ secrets.INTEGRATION_TYPE }}" -var broker_env_vars=${{ secrets.BROKER_ENV_VARS }} -no-color -out=tfplan
+        run: terraform plan -input=false -var-file="env/${{ github.env }}/terraform.tfvars" -no-color -out=tfplan
       - name: Terraform commands output
         id: tf_cmd_output
         run: |
@@ -53,7 +57,7 @@ jobs:
         with:
           name: plan
           path: tfplan
-      - name: Archive terraform plan
+      - name: Archive terraform plan json
         uses: actions/upload-artifact@v3
         with:
           name: tfplan_json
