@@ -3,8 +3,8 @@ module "secrets_manager" {
   version = "0.5.2"
 
   secrets = {
-    dockerhub_read = {
-      description = "DockerHub credential"
+    dockerhub_r = {
+      description = "DockerHub read scope access credentials"
       secret_key_value = {
         username = var.dockerhub_username
         password = var.dockerhub_access_token
