@@ -42,7 +42,7 @@ jobs:
         run: terraform init -backend-config=env/${{ github.env }}/config.s3.tfbackend -upgrade=true -no-color -input=false
       - name: Terraform plan
         id: plan
-        run: terraform plan -input=false -var integration_type=${{ secrets.INTEGRATION_TYPE }}  -no-color -out=tfplan
+        run: terraform plan -input=false -var integration_type="${{ secrets.INTEGRATION_TYPE }}" -var broker_env_vars=${{ secrets.BROKER_ENV_VARS }} -no-color -out=tfplan
       - name: Terraform commands output
         id: tf_cmd_output
         run: |
