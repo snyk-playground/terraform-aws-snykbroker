@@ -46,7 +46,7 @@ jobs:
         run: terraform init -backend-config=env/dev/config.s3.tfbackend -upgrade=true -no-color -input=false
       - name: Terraform plan
         id: plan
-        run: terraform plan -input=false -var-file="env/dev/terraform.tfvars" -no-color -out=tfplan
+        run: terraform plan -input=false -var-file="env/dev/terraform.tfvars" -no-color -out=tfplan 2>&1 | tee tfplan_plain.txt
       - name: Terraform commands output
         id: tf_cmd_output
         run: |
@@ -55,8 +55,13 @@ jobs:
       - name: Archive terraform plan
         uses: actions/upload-artifact@v3
         with:
-          name: plan
+          name: tfplan
           path: tfplan
+      - name: Archive terraform plan plaintext
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan_plain
+          path: tfplan_plain.txt
       - name: Archive terraform plan json
         uses: actions/upload-artifact@v3
         with:
@@ -135,10 +140,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: dev
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - uses: trstringer/manual-approval@v1
@@ -150,7 +151,13 @@ jobs:
       - name: Download tfplan
         uses: actions/download-artifact@v3
         with:
-          name: plan
+          name: tfplan
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
