@@ -7,7 +7,7 @@ variable "service_azs" {
 variable "service_name" {
   description = "Snyk broker service name"
   type        = string
-  default     = "SnykBroker"
+  default     = "snykbroker"
 }
 
 variable "service_desired_count" {
@@ -28,6 +28,12 @@ variable "scheduling_strategy" {
   default     = "REPLICA"
 }
 
+variable "container_name" {
+  description = "Snyk broker container name behind the Service"
+  type        = string
+  default     = "snykbroker"
+}
+
 variable "service_task_network_mode" {
   description = "Network mode used for containers in task"
   type        = string
@@ -46,11 +52,17 @@ variable "cloudwatch_log_group_name" {
   default     = "/aws/ecs/snykbroker"
 }
 
+variable "cloudwatch_log_retention_days" {
+  description = "SnykBroker CloudWatch log retention in days"
+  type        = number
+  default     = 1
+}
+
 # Snyk broker Task specifications
 
 # see https://github.com/snyk/broker
 variable "snyk_integration_images" {
-  description = "Map of Snyk integration type to default Snyk Docker image tag"
+  description = "Map of Snyk integration type to default official Snyk Docker image tag"
   type        = map(string)
   default     = {
     "gh"          = "github-com"
@@ -86,6 +98,7 @@ variable "broker_env_vars" {
   description = "Map of Snyk broker environment variables key-value pairs"
   type        = map(string)
   default     = {}
+  sensitive   = true
 }
 
 # additional environment values
@@ -122,13 +135,19 @@ variable "memory" {
 variable "image" {
   description = "Broker image to pull from DockerHub. May be custom derived broker image"
   type        = string
-  default     = "snyk/broker:github-com"
+  default     = null
 }
 
 variable "integration_type" {
   description = "Snyk Integration type.Current supported are GitHub.com, GitHub-Enterprise. "
   type        = string
   default     = ""
+}
+
+variable "log_bucket_name" {
+  description = "snykbbroker requests access log bucket name for logging webhooks requests"
+  type        = string
+  default     = null
 }
 
 variable "tags" {
@@ -142,10 +161,12 @@ variable "dockerhub_username" {
   description = "DockerHub username"
   type        = string
   default     = null
+  sensitive   = true
 }
 
 variable "dockerhub_access_token" {
   description = "DockerHub personal access token"
   type        = string
   default     = null
+  sensitive   = true
 }

@@ -1,0 +1,158 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  terraform:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      TF_VAR_dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      TF_VAR_dockerhub_access_token: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+      - name: Terraform init
+        id: init
+        run: terraform init -backend-config=env/${{ github.env }}/config.s3.tfbackend -upgrade=true -no-color -input=false
+      - name: Terraform plan
+        id: plan
+        run: terraform plan -input=false -var integration_type=${{ secrets.INTEGRATION_TYPE }}  -no-color -out=tfplan
+      - name: Terraform commands output
+        id: tf_cmd_output
+        run: |
+          terraform show -json tfplan > tfplan.json
+          terraform state pull > terraform.tfstate
+      - name: Archive terraform plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: plan
+          path: tfplan
+      - name: Archive terraform plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan_json
+          path: tfplan.json
+      - name: Archive terraform tfstate
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfstate
+          path: terraform.tfstate
+  snyk_test:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+    needs: terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tfplan json
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan_json
+      - name: Run Snyk to check configuration files for security issues
+        # Snyk can be used to break the build when it detects security issues.
+        # In this case we want to upload the issues to GitHub Code Scanning
+        continue-on-error: true
+        uses: snyk/actions/iac@master
+        env:
+          # In order to use the Snyk Action you will need to have a Snyk API token.
+          # More details in https://github.com/snyk/actions#getting-your-snyk-token
+          # or you can signup for free at https://snyk.io/login
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          # Add the path to the configuration file that you would like to test.
+          # For example `deployment.yaml` for a Kubernetes deployment manifest
+          # or `main.tf` for a Terraform configuration file
+          file: tfplan.json
+      - name: Upload result to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: snyk.sarif
+  snyk_describe:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+    needs: terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Download tfstate json
+        uses: actions/download-artifact@v3
+        with:
+          name: tfstate
+      - name: Run Snyk iac describe
+        # Snyk can be used to break the build when it detects security issues.
+        # In this case we want to upload the issues to GitHub Code Scanning
+        continue-on-error: true
+        uses: snyk/actions/iac@master
+        env:
+          # In order to use the Snyk Action you will need to have a Snyk API token.
+          # More details in https://github.com/snyk/actions#getting-your-snyk-token
+          # or you can signup for free at https://snyk.io/login
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          # Add the path to the configuration file that you would like to test.
+          # For example `deployment.yaml` for a Kubernetes deployment manifest
+          # or `main.tf` for a Terraform configuration file
+          command: describe
+          args: --from:"tfstate://terraform.tfstate" --only-managed
+  deploy:
+    needs: [snyk_test, snyk_describe]
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: gwnlng
+          minimum-approvals: 1
+          issue-title: "Apply terraform IaC to ${{ github.env }}"
+      - name: Download tfplan
+        uses: actions/download-artifact@v3
+        with:
+          name: plan
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+      - name: Terraform init
+        id: init
+        run: terraform init -backend-config=env/${{ github.env }}/config.s3.tfbackend -upgrade=true -no-color -input=false
+      - name: Terraform apply
+        id: apply
+        run: terraform apply "tfplan"
