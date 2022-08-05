@@ -159,6 +159,12 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+      - name: Terraform init
+        id: init
+        run: terraform init -backend-config=env/dev/config.s3.tfbackend -upgrade=true -no-color -input=false
+      - name: Terraform plan
+        id: plan
+        run: terraform plan -input=false -var-file="env/dev/terraform.tfvars" -no-color -out=tfplan
       - name: Terraform apply
         id: apply
         run: terraform apply "tfplan"
