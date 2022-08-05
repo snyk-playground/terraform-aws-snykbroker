@@ -162,9 +162,6 @@ jobs:
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
-      - name: Terraform init
-        id: init
-        run: terraform init -backend-config=env/dev/config.s3.tfbackend -upgrade=true -no-color -input=false
       - name: Terraform apply
         id: apply
         run: terraform apply "tfplan"
