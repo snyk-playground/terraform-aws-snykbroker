@@ -51,11 +51,6 @@ jobs:
         run: |
           terraform show -json tfplan > tfplan.json
           terraform state pull > terraform.tfstate
-      - name: Archive terraform plan
-        uses: actions/upload-artifact@v3
-        with:
-          name: tfplan
-          path: tfplan
       - name: Archive terraform plan plaintext
         uses: actions/upload-artifact@v3
         with:
@@ -149,10 +144,8 @@ jobs:
           approvers: gwnlng
           minimum-approvals: 1
           issue-title: "Apply terraform IaC to dev"
-      - name: Download tfplan
-        uses: actions/download-artifact@v3
-        with:
-          name: tfplan
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
