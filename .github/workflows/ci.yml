@@ -37,13 +37,12 @@ jobs:
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
-      - name: Terraform fmt
-        id: fmt
-        run: terraform fmt -check
-        continue-on-error: true
       - name: Terraform init
         id: init
         run: terraform init -backend-config=env/dev/config.s3.tfbackend -upgrade=true -no-color -input=false
+      - name: Terraform validate
+        id: validate
+        run: terraform validate -json
       - name: Terraform plan
         id: plan
         run: terraform plan -input=false -var-file="env/dev/terraform.tfvars" -no-color -out=tfplan 2>&1 | tee tfplan_plain.txt
@@ -52,11 +51,6 @@ jobs:
         run: |
           terraform show -json tfplan > tfplan.json
           terraform state pull > terraform.tfstate
-      - name: Archive terraform plan
-        uses: actions/upload-artifact@v3
-        with:
-          name: tfplan
-          path: tfplan
       - name: Archive terraform plan plaintext
         uses: actions/upload-artifact@v3
         with:
@@ -108,6 +102,8 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
     needs: terraform
     runs-on: ubuntu-latest
+    environment:
+      name: dev
     steps:
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -140,6 +136,10 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: dev
+    env:
+      TF_VAR_dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+      TF_VAR_dockerhub_access_token: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+      TF_VAR_broker_env_vars: ${{ secrets.BROKER_ENV_VARS }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - uses: trstringer/manual-approval@v1
@@ -148,22 +148,20 @@ jobs:
           approvers: gwnlng
           minimum-approvals: 1
           issue-title: "Apply terraform IaC to dev"
-      - name: Download tfplan
-        uses: actions/download-artifact@v3
-        with:
-          name: tfplan
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-      - uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_wrapper: false
       - name: Terraform init
         id: init
         run: terraform init -backend-config=env/dev/config.s3.tfbackend -upgrade=true -no-color -input=false
+      - name: Terraform plan
+        id: plan
+        run: terraform plan -input=false -var-file="env/dev/terraform.tfvars" -no-color -out=tfplan
       - name: Terraform apply
         id: apply
         run: terraform apply "tfplan"
