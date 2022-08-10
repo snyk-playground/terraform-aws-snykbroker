@@ -165,3 +165,11 @@ jobs:
       - name: Terraform apply
         id: apply
         run: terraform apply "tfplan"
+  clean:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deletes artifact
+        uses: philips-labs/action-delete-artifacts@v1.0.0
+        with:
+          workflow: ci.yml
