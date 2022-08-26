@@ -15,5 +15,5 @@ $ terraform apply "tfplan"
 
 ### Inputs
 
-The inputs to the IaC deployment comprise of GitHub configured secrets e.g. AWS, DockerHub credentials and Terraform variable values on the container specifications.
+The inputs to the IaC deployment comprise GitHub configured secrets e.g. AWS, DockerHub credentials and Terraform variable values on the container specifications.
 

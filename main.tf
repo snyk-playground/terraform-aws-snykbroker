@@ -6,17 +6,35 @@ locals {
   tags                  = merge({environment = "SnykBroker"}, var.tags)
   # environment variables key-value pairs
   env_vars              = lookup(var.snyk_integration_env_vars, var.integration_type, [])
-  broker_port           = lookup(var.broker_env_vars, "PORT", var.default_broker_port)
-  broker_client_url     = format("%s%s:%s", "http://", module.snykbroker_nlb.lb_dns_name, local.broker_port)
-  # provided broker_client_url in var.broker_env_vars takes precedence, otherwise derived from nlb dns
+  broker_port           = lookup(var.broker_env_vars, "PORT", var.broker_port)
+  broker_client_url     = format("%s://%s:%s", var.broker_protocol, try(values(module.snykbroker_lb_route53_record.route53_record_fqdn)[0], module.snykbroker_nlb.lb_dns_name), local.broker_port)
+  # certificate env vars
+  mount_path            = "/mnt/shared/cert"
+  cert_env_vars         = {
+    "HTTPS_CERT" = format("%s/%s", local.mount_path, element(split("/", var.broker_ssl_cert_object), length(split("/", var.broker_ssl_cert_object))-1))
+    "HTTPS_KEY"  = format("%s/%s", local.mount_path, element(split("/", var.broker_private_key_object), length(split("/", var.broker_private_key_object))-1))
+  }
+
+  # provided broker_client_url in var.broker_env_vars takes precedence, otherwise derived from nlb fqdn or its amazonaws.com dns name
   broker_env_vars       = merge({
     for v in local.env_vars :
       v => lookup(merge({"BROKER_CLIENT_URL" = local.broker_client_url}, var.broker_env_vars), v, "")
-  }, var.additional_env_vars)
+  }, local.cert_env_vars, var.additional_env_vars)
+
+  # remove trailing dot from domain if any
+  domain_name = trimsuffix(var.public_domain_name, ".")
+  lb_name     = "${var.service_name}lb"
 }
 
 data "aws_availability_zones" "available" {
   state = "available"
+}
+
+data "aws_route53_zone" "public_zone" {
+  count = var.use_existing_route53_zone ? 1 : 0
+
+  name         = local.domain_name
+  private_zone = false
 }
 
 module "snykbroker_vpc" {
@@ -41,7 +59,7 @@ module "snykbroker_vpc" {
 
 module "snykbroker_security_group" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "4.9.0"
+  version = "4.13.0"
 
   name        = "snykbroker_service"
   description = "Security group for SnykBroker with https and client port open within VPC"
@@ -50,7 +68,7 @@ module "snykbroker_security_group" {
   # allow ingress from private networks on customer premises
   ingress_cidr_blocks      = ["0.0.0.0/0"]
   ingress_rules            = ["https-443-tcp"]
-  ingress_with_cidr_blocks = [
+  ingress_with_cidr_blocks = var.broker_protocol == "http" ? [
     {
       from_port   = local.broker_port
       to_port     = local.broker_port
@@ -58,9 +76,15 @@ module "snykbroker_security_group" {
       description = "SnykBroker client port for webhook access"
       cidr_blocks = "0.0.0.0/0"
     }
-  ]
+  ] : []
   egress_cidr_blocks      = ["0.0.0.0/0"]
   egress_rules            = ["https-443-tcp"]
+  egress_with_source_security_group_id = [
+    {
+      rule                     = "nfs-tcp"
+      source_security_group_id = module.snykbroker_efs.sg_id
+    }
+  ]
 
   tags = local.tags
 }
@@ -70,6 +94,7 @@ module "snykbroker_log_group" {
   version = "3.3.0"
 
   name              = var.cloudwatch_log_group_name
+  #kms_key_id        = module.snykbroker_kms.key_arn
   retention_in_days = var.cloudwatch_log_retention_days
 }
 
@@ -109,7 +134,7 @@ module "snykbroker_ecs_task_definition" {
   version = "2.1.2"
 
   enabled                   = true
-  name_prefix               = "snykbroker"
+  name_prefix               = var.service_name
   # use custom image if specified, otherwise an official snyk dockerhub image based on integration type
   task_container_image      = var.image != null ? var.image : local.image
   container_name            = var.container_name
@@ -120,9 +145,34 @@ module "snykbroker_ecs_task_definition" {
   cloudwatch_log_group_name = module.snykbroker_log_group.cloudwatch_log_group_name
 
   create_repository_credentials_iam_policy = true
-  repository_credentials                   = module.secrets_manager.secret_arns["dockerhub_r"]
+  repository_credentials_kms_key           = module.snykbroker_kms.key_id
+  repository_credentials                   = module.snykbroker_secrets.secret_arns["dockerhub_r"]
   task_container_environment               = local.broker_env_vars
 
+  task_stop_timeout = 90
+
+  task_mount_points = [
+    {
+      sourceVolume  = var.service_name
+      containerPath = "/mnt/shared"
+      readOnly      = true
+    }
+  ]
+
+  # volume name corresponds to sourceVolume which will contain a cert directory with cert injected by a lambda function
+  volume = [
+    {
+      name = var.service_name
+      efs_volume_configuration = [
+        {
+          file_system_id       = module.snykbroker_efs.efs_id
+          root_directory       = "/"
+          transit_encryption   = "ENABLED"
+          authorization_config = {}
+        }
+      ]
+    }
+  ]
   tags = local.tags
 }
 
@@ -130,7 +180,7 @@ module "snykbroker_nlb" {
   source  = "terraform-aws-modules/alb/aws"
   version = "7.0.0"
 
-  name               = "snykbroker"
+  name               = var.service_name
   # launch external facing NLB that accepts http/https traffic from webhook requests of cloud-hosted SCMs
   load_balancer_type = "network"
   internal           = false
@@ -145,23 +195,49 @@ module "snykbroker_nlb" {
   target_groups = [
     {
       name_prefix       = "snyk-"
-      backend_protocol  = "TCP"
+      backend_protocol  = var.broker_protocol == "http" ? "TCP" : "TLS"
       backend_port      = local.broker_port
       target_type       = "ip"
     }
   ]
 
-  http_tcp_listeners = [
+  https_listeners = var.broker_protocol == "https" ? [
+    {
+      port               = local.broker_port
+      protocol           = "TLS"
+      certificate_arn    = module.snykbroker_acm.acm_certificate_arn
+      target_group_index = 0
+    }
+  ] : []
+
+  http_tcp_listeners = var.broker_protocol == "http" ? [
     {
       port               = local.broker_port
       protocol           = "TCP"
       target_group_index = 0
     }
-  ]
+  ] : []
 
   tags = local.tags
 }
 
+module "snykbroker_efs" {
+  source  = "terraform-iaac/efs/aws"
+  version = "2.0.4"
+  # insert the 5 required variables here
+  name       = var.service_name
+  vpc_id     = module.snykbroker_vpc.vpc_id
+  subnet_ids = module.snykbroker_vpc.private_subnets
+  encrypted  = true
+  kms_key_id = module.snykbroker_kms.key_arn
+  # allowed ingress from private subnets cidr
+  whitelist_cidr = [for x in range(var.service_azs) : cidrsubnet("192.168.0.0/21", 3, x)]
+  #whitelist_sg  = [module.snykbroker_vpc.default_security_group_id]
+
+  tags = local.tags
+}
+
+# umotif-public/terraform-aws-ecs-fargate module v6.5.2 is not used because it does not parameterize a hardened security group
 resource "aws_ecs_service" "snykbroker_service" {
   name            = var.service_name
   cluster         = module.snykbroker_ecs_cluster.cluster_id
@@ -171,13 +247,10 @@ resource "aws_ecs_service" "snykbroker_service" {
   scheduling_strategy  = var.scheduling_strategy
   force_new_deployment = true
 
-  dynamic "network_configuration" {
-    for_each = var.service_task_network_mode == "awsvpc" ? ["true"] : []
-    content {
-      subnets          = module.snykbroker_vpc.private_subnets
-      security_groups  = [module.snykbroker_security_group.security_group_id]
-      assign_public_ip = false
-    }
+  network_configuration {
+    subnets          = module.snykbroker_vpc.private_subnets
+    security_groups  = [module.snykbroker_security_group.security_group_id]
+    assign_public_ip = false
   }
 
   load_balancer {
@@ -185,6 +258,59 @@ resource "aws_ecs_service" "snykbroker_service" {
     container_name   = var.container_name
     container_port   = local.broker_port
   }
+
+  tags = local.tags
+  depends_on = [aws_lambda_invocation.snykbroker_lambda_invocation]
+}
+
+# creates <public_domain_name> public hosted zone if non-existent
+module "public_route53_zone" {
+  count = !var.use_existing_route53_zone ? 1 : 0
+  source  = "terraform-aws-modules/route53/aws//modules/zones"
+  version = "2.9.0"
+  zones = {
+    (local.domain_name) = {
+      comment = "Public ${local.domain_name} hosted zone"
+      # force destroy for repeated iac testing
+      force_destroy = true
+    }
+  }
+
+  tags = local.tags
+}
+
+# create load balancer route53 record "snykbrokerlb.<public_domain_name>"
+# this requires AWS Route53 to manage DNS on a public hosted zone defined by its public domain name
+module "snykbroker_lb_route53_record" {
+  source  = "terraform-aws-modules/route53/aws//modules/records"
+  version = "2.9.0"
+  zone_name = local.domain_name
+
+  records = [
+    {
+      name    = local.lb_name
+      type    = "A"
+      alias   = {
+        name                   = module.snykbroker_nlb.lb_dns_name
+        zone_id                = module.snykbroker_nlb.lb_zone_id
+        evaluate_target_health = true
+      }
+    }
+  ]
+
+  # in case of creating the public hosted zone
+  depends_on = [module.public_route53_zone]
+}
+
+# creates a default Route53 DNS validated public certificate for the load balancer use
+module "snykbroker_acm" {
+  source  = "terraform-aws-modules/acm/aws"
+  version = "4.0.1"
+
+  domain_name = format("%s.%s", local.lb_name, local.domain_name)
+  zone_id     = coalescelist(data.aws_route53_zone.public_zone.*.zone_id, try(values(module.public_route53_zone[0].route53_zone_zone_id), []))[0]
+
+  wait_for_validation = true
 
   tags = local.tags
 }

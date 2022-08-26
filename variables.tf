@@ -34,18 +34,6 @@ variable "container_name" {
   default     = "snykbroker"
 }
 
-variable "service_task_network_mode" {
-  description = "Network mode used for containers in task"
-  type        = string
-  default     = "awsvpc"
-}
-
-variable "attach_to_load_balancer" {
-  description = "Whether to attach load balancer to broker service"
-  type        = bool
-  default     = false
-}
-
 variable "cloudwatch_log_group_name" {
   description = "SnykBroker CloudWatch log group name"
   type        = string
@@ -114,10 +102,16 @@ variable "snykbroker_repo" {
   default     = "snyk/broker"
 }
 
-variable "default_broker_port" {
+variable "broker_protocol" {
+  description = "Protocol for running connections to SnykBroker. Either http or https"
+  type        = string
+  default     = "https"
+}
+
+variable "broker_port" {
   description = "Default snykbroker client port"
   type        = number
-  default     = 7341
+  default     = 443
 }
 
 variable "cpu" {
@@ -169,4 +163,42 @@ variable "dockerhub_access_token" {
   type        = string
   default     = null
   sensitive   = true
+}
+
+variable "public_domain_name" {
+  description = "Customer public domain e.g. example.com"
+  type        = string
+  default     = null
+}
+
+variable "use_existing_route53_zone" {
+  description = "Use existing public hosted zone of <public_domain_name> or create new zone"
+  type        = bool
+  default     = true
+}
+
+# handling of SnykBroker private key and cert usage
+variable "cert_bucket_name" {
+  description = "S3 bucket name storing SnykBroker private key, certificate (.crt)"
+  type        = string
+  default     = null
+}
+
+variable "broker_private_key_object" {
+  description = "S3 object of SnykBroker certificate private key. Example <s3folder>/<name>.key"
+  type        = string
+  default     = null
+}
+
+variable "broker_ssl_cert_object" {
+  description = "S3 object of SnykBroker certificate. Example <s3folder>/<name>.crt"
+  type        = string
+  default     = null
+}
+
+# Lambda related variable
+variable "lambda_runtime" {
+  description = "Lambda function runtime. Defined by AWS supported versions."
+  type        = string
+  default     = "python3.9"
 }

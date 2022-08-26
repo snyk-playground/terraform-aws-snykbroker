@@ -170,6 +170,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deletes artifact
-        uses: philips-labs/action-delete-artifacts@v1.0.0
+        uses: geekyeggo/delete-artifact@v1
         with:
-          workflow: ci.yml
+          name: |
+            tfplan_json
+            tfstate

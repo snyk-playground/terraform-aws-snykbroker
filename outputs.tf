@@ -3,8 +3,7 @@ output "aws_broker_dns_name" {
   value       = module.snykbroker_nlb.lb_dns_name
 }
 
-output "broker_client_url" {
-  description = "SnykBroker Client URL"
-  value       = try(lookup(local.broker_env_vars, "BROKER_CLIENT_URL", ""), "")
-  sensitive   = true
+output "snykbroker_lb_dns_name" {
+  description = "SnykBroker Client load balancer DNS name"
+  value       = try(values(module.snykbroker_lb_route53_record.route53_record_fqdn)[0], "")
 }
