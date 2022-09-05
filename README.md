@@ -3,7 +3,10 @@
 # terraform-aws-snykbroker
 
 Terraform reference implementation example to create and run [Snyk Broker](https://github.com/snyk/broker) as an AWS Elastic Container Service (ECS) Fargate Service.
-:heavy_exclamation_mark: Requires a public hosted domain name managed by AWS Route53 Domain Name System (DNS) zone
+
+:heavy_exclamation_mark: **Note**
+
+`Requires a public hosted domain name managed by AWS Route53 Domain Name System (DNS) zone`
 
 ## Usage
 
@@ -32,7 +35,7 @@ This GitHub CI workflow (ci.yml) accepts input for running [Snyk broker](https:/
 
 #### Broker Environment Variables (BROKER_ENV_VARS) format
 
-This Environment variable value is specified as HCL map(string). Example:
+This Environment variable value is specified as a map(string). Example:
 ```
 {"BROKER_TOKEN":"xxx","GITHUB_TOKEN":"yyy"}
 ```
