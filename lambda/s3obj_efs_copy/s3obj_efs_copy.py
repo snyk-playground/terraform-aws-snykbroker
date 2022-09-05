@@ -2,7 +2,7 @@ import boto3
 from botocore.exceptions import ClientError
 import os
 
-BASE_DIR = "/mnt/shared/"
+BASE_DIR = "/mnt/shared"
 
 
 def lambda_handler(event, context):

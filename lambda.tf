@@ -2,9 +2,11 @@
 # this will set https to be served by the container even though its cert will not be validated at the target
 # https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-routing-configuration
 module "snykbroker_cert_handler_lambda" {
+  count   = var.use_private_ssl_cert ? 1 : 0
   source  = "terraform-aws-modules/lambda/aws"
   version = "4.0.0"
 
+  create        = var.use_private_ssl_cert
   function_name = "snykbroker_cert_copy"
   description   = "SnykBroker private certificate handler function"
   handler       = "s3obj_efs_copy.lambda_handler"
@@ -13,7 +15,7 @@ module "snykbroker_cert_handler_lambda" {
   source_path = "${path.module}/lambda/s3obj_efs_copy"
 
   vpc_subnet_ids         = module.snykbroker_vpc.private_subnets
-  vpc_security_group_ids = [module.snykbroker_lambda_security_group.security_group_id]
+  vpc_security_group_ids = [module.snykbroker_lambda_security_group[0].security_group_id]
   attach_network_policy  = true
   timeout                = 300
 
@@ -28,19 +30,21 @@ module "snykbroker_cert_handler_lambda" {
   ]
   role_tags = local.tags
 
-  file_system_arn              = aws_efs_access_point.snykbroker_lambda_access_point.arn
-  file_system_local_mount_path = "/mnt/shared"
+  file_system_arn              = aws_efs_access_point.snykbroker_cert_access_point[0].arn
+  file_system_local_mount_path = local.mount_path
 
   tags = local.tags
   # Explicitly declare dependency on EFS mount target.
   # When creating or updating Lambda functions, mount target must be in 'available' lifecycle state.
-  depends_on = [data.aws_efs_mount_target.snykbroker_efs_mount_target]
+  depends_on = [module.snykbroker_efs]
 }
 
 module "snykbroker_lambda_security_group" {
+  count   = var.use_private_ssl_cert ? 1 : 0
   source  = "terraform-aws-modules/security-group/aws"
   version = "4.13.0"
 
+  create      = var.use_private_ssl_cert
   name        = "snykbroker_lambda_security"
   description = "Security group for cert handler lambda"
   vpc_id      = module.snykbroker_vpc.vpc_id
@@ -51,20 +55,16 @@ module "snykbroker_lambda_security_group" {
   egress_with_source_security_group_id = [
     {
       rule                     = "nfs-tcp"
-      source_security_group_id = module.snykbroker_efs.sg_id
+      source_security_group_id = module.snykbroker_efs[0].sg_id
     }
   ]
 
   tags = local.tags
 }
 
-data "aws_efs_mount_target" "snykbroker_efs_mount_target" {
-  file_system_id = module.snykbroker_efs.efs_id
-  depends_on = [module.snykbroker_efs]
-}
-
-resource "aws_efs_access_point" "snykbroker_lambda_access_point" {
-  file_system_id = module.snykbroker_efs.efs_id
+resource "aws_efs_access_point" "snykbroker_cert_access_point" {
+  count          = var.use_private_ssl_cert ? 1 : 0
+  file_system_id = module.snykbroker_efs[0].efs_id
 
   posix_user {
     gid = 1000
@@ -82,11 +82,23 @@ resource "aws_efs_access_point" "snykbroker_lambda_access_point" {
   }
 }
 
-# invoke injection lambda function with event map pointing to the key and crt cert
+# local provisioner waits 90 seconds for efs DNS records to propagate in aws region
+# see https://docs.aws.amazon.com/efs/latest/ug/mounting-fs-mount-cmd-dns-name.html
+resource "null_resource" "wait_lambda_efs" {
+  count = var.use_private_ssl_cert ? 1 : 0
+  provisioner "local-exec" {
+    command = "sleep 90"
+  }
+  depends_on = [module.snykbroker_cert_handler_lambda]
+}
+
+# invoke injection lambda function with event map pointing to the key and cert
 resource "aws_lambda_invocation" "snykbroker_lambda_invocation" {
-  function_name = module.snykbroker_cert_handler_lambda.lambda_function_name
+  count = var.use_private_ssl_cert ? 1 : 0
+  function_name = module.snykbroker_cert_handler_lambda[0].lambda_function_name
   input         = jsonencode({
     "bucket_name" = var.cert_bucket_name
     "s3_objects"  = [var.broker_private_key_object, var.broker_ssl_cert_object]
   })
+  depends_on = [null_resource.wait_lambda_efs]
 }

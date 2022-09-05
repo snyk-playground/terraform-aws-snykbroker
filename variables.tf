@@ -1,3 +1,10 @@
+# SnykBroker vpc
+variable "vpc_cidr" {
+  description = "SnykBroker VPC cidr. Linked to service_azs to be created"
+  type        = string
+  default     = "192.168.0.0/20"
+}
+
 variable "service_azs" {
   description = "count of service availability zones to use"
   type        = number
@@ -43,7 +50,7 @@ variable "cloudwatch_log_group_name" {
 variable "cloudwatch_log_retention_days" {
   description = "SnykBroker CloudWatch log retention in days"
   type        = number
-  default     = 1
+  default     = 7
 }
 
 # Snyk broker Task specifications
@@ -83,7 +90,7 @@ variable "snyk_integration_env_vars" {
 # see https://github.com/snyk/broker
 # user specified environment key-value pairs should include all required ones at snyk_integration_env_vars
 variable "broker_env_vars" {
-  description = "Map of Snyk broker environment variables key-value pairs"
+  description = "SnykBroker environment variables key-value pairs. PORT, BROKER_CLIENT_URL not required"
   type        = map(string)
   default     = {}
   sensitive   = true
@@ -109,9 +116,9 @@ variable "broker_protocol" {
 }
 
 variable "broker_port" {
-  description = "Default snykbroker client port"
+  description = "Default snykbroker client port. Set a non-system port i.e. >= 1024 as container run-as non-root user"
   type        = number
-  default     = 443
+  default     = 7341
 }
 
 variable "cpu" {
@@ -133,7 +140,7 @@ variable "image" {
 }
 
 variable "integration_type" {
-  description = "Snyk Integration type.Current supported are GitHub.com, GitHub-Enterprise. "
+  description = "Snyk Integration type"
   type        = string
   default     = ""
 }
@@ -171,6 +178,12 @@ variable "public_domain_name" {
   default     = null
 }
 
+variable "broker_hostname" {
+  description = "SnykBroker hostname. <broker_hostname>.<public_domain_name> forms its FQDN for SCM webhooks calls"
+  type        = string
+  default     = "snykbroker"
+}
+
 variable "use_existing_route53_zone" {
   description = "Use existing public hosted zone of <public_domain_name> or create new zone"
   type        = bool
@@ -178,8 +191,14 @@ variable "use_existing_route53_zone" {
 }
 
 # handling of SnykBroker private key and cert usage
+variable "use_private_ssl_cert" {
+  description = "Use private SSL certificate at SnykBroker client"
+  type        = bool
+  default     = true
+}
+
 variable "cert_bucket_name" {
-  description = "S3 bucket name storing SnykBroker private key, certificate (.crt)"
+  description = "S3 bucket name storing SnykBroker private key, SSL certificate"
   type        = string
   default     = null
 }
@@ -191,7 +210,7 @@ variable "broker_private_key_object" {
 }
 
 variable "broker_ssl_cert_object" {
-  description = "S3 object of SnykBroker certificate. Example <s3folder>/<name>.crt"
+  description = "S3 object of SnykBroker certificate. Example <s3folder>/<name>.pem"
   type        = string
   default     = null
 }
