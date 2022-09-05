@@ -2,7 +2,8 @@
 
 # terraform-aws-snykbroker
 
-Terraform reference example to create Snyk Broker as an AWS Elastic Container Service (ECS) Fargate Service.
+Terraform reference implementation example to create and run [Snyk Broker](https://github.com/snyk/broker) as an AWS Elastic Container Service (ECS) Fargate Service.
+:heavy_exclamation_mark: Requires a public hosted domain name managed by AWS Route53 Domain Name System (DNS) zone
 
 ## Usage
 
@@ -129,7 +130,7 @@ $ terraform apply "tfplan"
 | <a name="input_launch_type"></a> [launch\_type](#input\_launch\_type) | SnykBroker service launch type | `string` | `"FARGATE"` |    no    |
 | <a name="input_log_bucket_name"></a> [log\_bucket\_name](#input\_log\_bucket\_name) | snykbbroker requests access log bucket name for logging webhooks requests | `string` | `null` |    no    |
 | <a name="input_memory"></a> [memory](#input\_memory) | Broker service memory in MiB. Min 512, max 30720 | `number` | `512` |    no    |
-| <a name="input_public_domain_name"></a> [public\_domain\_name](#input\_public\_domain\_name) | Customer public domain e.g. example.com | `string` | `null` |    no    |
+| <a name="input_public_domain_name"></a> [public\_domain\_name](#input\_public\_domain\_name) | Customer public domain e.g. example.com | `string` | `null` |   yes    |
 | <a name="input_scheduling_strategy"></a> [scheduling\_strategy](#input\_scheduling\_strategy) | Snyk broker scheduling strategy | `string` | `"REPLICA"` |    no    |
 | <a name="input_service_azs"></a> [service\_azs](#input\_service\_azs) | count of service availability zones to use | `number` | `2` |    no    |
 | <a name="input_service_desired_count"></a> [service\_desired\_count](#input\_service\_desired\_count) | Snyk broker service instance count | `number` | `1` |    no    |

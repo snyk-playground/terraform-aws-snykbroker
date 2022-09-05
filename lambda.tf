@@ -19,7 +19,10 @@ module "snykbroker_cert_handler_lambda" {
   attach_network_policy  = true
   timeout                = 300
 
-  attach_cloudwatch_logs_policy = true
+  attach_cloudwatch_logs_policy     = true
+  cloudwatch_logs_kms_key_id        = module.snykbroker_kms.key_arn
+  cloudwatch_logs_retention_in_days = var.cloudwatch_log_retention_days
+  cloudwatch_logs_tags              = local.tags
   # IAM policies
   attach_policies    = true
   number_of_policies = 3

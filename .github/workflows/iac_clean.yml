@@ -32,4 +32,4 @@ jobs:
         run: terraform init -backend-config=env/dev/config.s3.tfbackend -upgrade=true -no-color -input=false
       - name: Destroy IaC resources
         id: destroy
-        run: terraform apply -destroy -auto-approve
+        run: terraform apply -destroy -input=false -var-file=env/dev/terraform.tfvars -auto-approve
