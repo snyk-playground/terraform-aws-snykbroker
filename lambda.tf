@@ -4,7 +4,7 @@
 module "snykbroker_cert_handler_lambda" {
   count   = var.use_private_ssl_cert ? 1 : 0
   source  = "terraform-aws-modules/lambda/aws"
-  version = "4.0.0"
+  version = "4.0.1"
 
   create        = var.use_private_ssl_cert
   function_name = "snykbroker_cert_copy"
