@@ -10,14 +10,12 @@ module "snykbroker_secrets" {
         username = var.dockerhub_username
         password = var.dockerhub_access_token
       }
-      tags = {
-        app = "dockerhub"
-      }
+      tags = var.tags
       recovery_window_in_days = 0
     },
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 module "snykbroker_kms" {
@@ -28,7 +26,7 @@ module "snykbroker_kms" {
   # key used for encrypting snykbroker cloudwatch log groups
   source_policy_documents = [data.aws_iam_policy_document.snykbroker_logs_policy_doc.json]
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # SSM parameters for sensitive TOKEN values
@@ -40,5 +38,5 @@ resource "aws_ssm_parameter" "tokens" {
   description = each.key
   key_id      = module.snykbroker_kms.key_id
   overwrite   = true
-  tags        = local.tags
+  tags        = var.tags
 }

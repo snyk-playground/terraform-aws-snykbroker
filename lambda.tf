@@ -22,7 +22,7 @@ module "snykbroker_cert_handler_lambda" {
   attach_cloudwatch_logs_policy     = true
   cloudwatch_logs_kms_key_id        = module.snykbroker_kms.key_arn
   cloudwatch_logs_retention_in_days = var.cloudwatch_log_retention_days
-  cloudwatch_logs_tags              = local.tags
+  cloudwatch_logs_tags              = var.tags
   # IAM policies
   attach_policies    = true
   number_of_policies = 3
@@ -31,12 +31,12 @@ module "snykbroker_cert_handler_lambda" {
     "arn:aws:iam::aws:policy/AmazonElasticFileSystemClientReadWriteAccess",
     module.snykbroker_kms_iam_policy.arn,
   ]
-  role_tags = local.tags
+  role_tags = var.tags
 
   file_system_arn              = aws_efs_access_point.snykbroker_cert_access_point[0].arn
   file_system_local_mount_path = local.mount_path
 
-  tags = local.tags
+  tags = var.tags
   # Explicitly declare dependency on EFS mount target.
   # When creating or updating Lambda functions, mount target must be in 'available' lifecycle state.
   depends_on = [module.snykbroker_efs]
@@ -62,7 +62,7 @@ module "snykbroker_lambda_security_group" {
     }
   ]
 
-  tags = local.tags
+  tags = var.tags
 }
 
 resource "aws_efs_access_point" "snykbroker_cert_access_point" {
@@ -83,6 +83,7 @@ resource "aws_efs_access_point" "snykbroker_cert_access_point" {
       permissions = "0777"
     }
   }
+  tags = var.tags
 }
 
 # local provisioner waits 90 seconds for efs DNS records to propagate in aws region

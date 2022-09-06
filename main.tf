@@ -26,7 +26,7 @@ module "snykbroker_vpc" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  tags = local.tags
+  tags = var.tags
 }
 
 module "snykbroker_lb_security_group" {
@@ -90,7 +90,7 @@ module "snykbroker_security_group" {
     }
   ] : []
 
-  tags = local.tags
+  tags = var.tags
 }
 
 module "snykbroker_log_group" {
@@ -130,7 +130,7 @@ module "snykbroker_ecs_cluster" {
     }
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 module "snykbroker_ecs_task_definition" {
@@ -181,7 +181,7 @@ module "snykbroker_ecs_task_definition" {
       ]
     }
   ] : []
-  tags = local.tags
+  tags = var.tags
 }
 
 module "snykbroker_lb" {
@@ -239,7 +239,7 @@ module "snykbroker_lb" {
     }
   ] : []
 
-  tags = local.tags
+  tags = var.tags
 }
 
 module "snykbroker_efs" {
@@ -255,7 +255,7 @@ module "snykbroker_efs" {
   # allowed ingress from private subnets cidr
   whitelist_cidr = module.snykbroker_vpc.private_subnets_cidr_blocks
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # umotif-public/terraform-aws-ecs-fargate module v6.5.2 is not used because it does not parameterize a hardened security group
@@ -280,7 +280,7 @@ resource "aws_ecs_service" "snykbroker_service" {
     container_port   = local.broker_port
   }
 
-  tags = local.tags
+  tags = var.tags
   depends_on = [aws_lambda_invocation.snykbroker_lambda_invocation]
 }
 
@@ -297,7 +297,7 @@ module "public_route53_zone" {
     }
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # create load balancer route53 record "<broker_hostname>.<public_domain_name>"
@@ -334,5 +334,5 @@ module "snykbroker_acm" {
 
   wait_for_validation = true
 
-  tags = local.tags
+  tags = var.tags
 }

@@ -157,6 +157,14 @@ variable "tags" {
   default     = {}
 }
 
+variable "default_tags" {
+  description = "Default Tags at aws provider scope"
+  type        = map(string)
+  default     = {
+    "Snyk" = "SnykBroker"
+  }
+}
+
 # Credentials to DockerHub for pull of snyk broker image
 variable "dockerhub_username" {
   description = "DockerHub username"

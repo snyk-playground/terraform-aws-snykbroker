@@ -2,8 +2,6 @@ locals {
   # derive specific dockerhub image to pull
   image_tag             = lookup(var.snyk_integration_images, var.integration_type, "")
   image                 = format("%s:%s", var.snykbroker_repo, local.image_tag)
-  # merge with user specified terraform tags
-  tags                  = merge({"environment" = "SnykBroker"}, var.tags)
   # environment variables key-value pairs
   env_vars              = lookup(var.snyk_integration_env_vars, var.integration_type, [])
   broker_port           = var.broker_port
