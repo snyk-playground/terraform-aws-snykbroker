@@ -2,6 +2,8 @@
 
 # terraform-aws-snykbroker
 
+![snyk-oss-category](https://github.com/snyk-labs/oss-images/blob/main/oss-community.jpg)
+
 Terraform reference implementation example to create and run [Snyk Broker](https://github.com/snyk/broker) as an AWS Elastic Container Service (ECS) Fargate Service.
 
 :heavy_exclamation_mark: **Note**
@@ -52,6 +54,27 @@ $ terraform init -backend-config="env/dev/config.s3.tfbackend"
 $ terraform plan -input=false -var-file="env/dev/terraform.tfvars" -out=tfplan
 $ terraform apply "tfplan"
 ```
+
+### Deployment Modes
+
+| Mode       | Description                                       | Variable Settings                                   |
+|------------|---------------------------------------------------|-----------------------------------------------------|
+| HTTP       | No SSL certificate                                | broker_protocol="http", use_private_ssl_cert=false  |
+| HTTPS/HTTP | Public SSL certificate, internal HTTP             | broker_protocol="https", use_private_ssl_cert=false |
+| HTTPS      | Public SSL certificate, internal private SSL cert | broker_protocol="https", use_private_ssl_cert=true  |
+
+#### Public SSL certificate
+
+Public SSL certificate for `<broker_hostname>.<public_domain_name>` is created and managed by AWS Certificate Manager (ACM) with its renewal automatically handled.
+
+#### Private SSL certificate/Key
+
+* Upload private SSL certificate (.pem) and its private key (.key) to a S3 bucket
+* Set variable `cert_bucket_name="<S3_bucket_name>"` 
+* Set variable `broker_private_key_object="<S3_folder>/<key_name.key>"`
+* Set variable `broker_ssl_cert_object="<S3_folder>/<cert_name.pem>"`
+
+Private SSL certificate validity and renewal are handled independently by Customer.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -128,7 +151,7 @@ $ terraform apply "tfplan"
 | <a name="input_dockerhub_access_token"></a> [dockerhub\_access\_token](#input\_dockerhub\_access\_token) | DockerHub personal access token | `string` | `null` |    no    |
 | <a name="input_dockerhub_username"></a> [dockerhub\_username](#input\_dockerhub\_username) | DockerHub username | `string` | `null` |    no    |
 | <a name="input_image"></a> [image](#input\_image) | Broker image to pull from DockerHub. May be custom derived broker image | `string` | `null` |    no    |
-| <a name="input_integration_type"></a> [integration\_type](#input\_integration\_type) | Snyk Integration type | `string` | `""` |    no    |
+| <a name="input_integration_type"></a> [integration\_type](#input\_integration\_type) | Snyk Integration type. Choice of artifactory, azurerepos, bitbucket, gh, ghe, gitlab, jira or nexus | `string` | `""` |   yes    |
 | <a name="input_lambda_runtime"></a> [lambda\_runtime](#input\_lambda\_runtime) | Lambda function runtime. Defined by AWS supported versions. | `string` | `"python3.9"` |    no    |
 | <a name="input_launch_type"></a> [launch\_type](#input\_launch\_type) | SnykBroker service launch type | `string` | `"FARGATE"` |    no    |
 | <a name="input_log_bucket_name"></a> [log\_bucket\_name](#input\_log\_bucket\_name) | snykbbroker requests access log bucket name for logging webhooks requests | `string` | `null` |    no    |

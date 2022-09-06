@@ -140,7 +140,7 @@ variable "image" {
 }
 
 variable "integration_type" {
-  description = "Snyk Integration type"
+  description = "Snyk Integration type. Choice of artifactory, azurerepos, bitbucket, gh, ghe, gitlab, jira or nexus"
   type        = string
   default     = ""
 }
