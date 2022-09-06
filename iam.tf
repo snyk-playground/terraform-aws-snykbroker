@@ -51,7 +51,6 @@ module "snykbroker_kms_iam_policy" {
   name        = "snykbroker_kms_policy"
   path        = "/"
   policy      = data.aws_iam_policy_document.snykbroker_secrets_policy_doc.json
-  tags        = var.tags
 }
 
 # attach KMS policy permissions to Fargate execution role
