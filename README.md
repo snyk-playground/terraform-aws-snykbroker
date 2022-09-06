@@ -70,6 +70,7 @@ Public SSL certificate for `<broker_hostname>.<public_domain_name>` is created a
 #### Private SSL certificate/Key
 
 * Upload private SSL certificate (.pem) and its private key (.key) to a S3 bucket
+* Ensure S3 bucket and these 2 objects are accessible to Terraform assumed credentials
 * Set variable `cert_bucket_name="<S3_bucket_name>"` 
 * Set variable `broker_private_key_object="<S3_folder>/<key_name.key>"`
 * Set variable `broker_ssl_cert_object="<S3_folder>/<cert_name.pem>"`
@@ -148,6 +149,7 @@ Private SSL certificate validity and renewal are handled independently by Custom
 | <a name="input_cloudwatch_log_retention_days"></a> [cloudwatch\_log\_retention\_days](#input\_cloudwatch\_log\_retention\_days) | SnykBroker CloudWatch log retention in days | `number` | `7` |    no    |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | Snyk broker container name behind the Service | `string` | `"snykbroker"` |    no    |
 | <a name="input_cpu"></a> [cpu](#input\_cpu) | Broker service task CPU. min 256 i.e. 0.25 vCPU, max 4096 i.e. 4 vCPU | `number` | `256` |    no    |
+| <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default Tags at aws provider scope | `map(string)` | <pre>{<br>  "Snyk": "SnykBroker"<br>}</pre> |    no    |
 | <a name="input_dockerhub_access_token"></a> [dockerhub\_access\_token](#input\_dockerhub\_access\_token) | DockerHub personal access token | `string` | `null` |    no    |
 | <a name="input_dockerhub_username"></a> [dockerhub\_username](#input\_dockerhub\_username) | DockerHub username | `string` | `null` |    no    |
 | <a name="input_image"></a> [image](#input\_image) | Broker image to pull from DockerHub. May be custom derived broker image | `string` | `null` |    no    |
