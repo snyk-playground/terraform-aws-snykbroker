@@ -208,6 +208,17 @@ module "snykbroker_lb" {
       backend_protocol  = var.use_private_ssl_cert ? "HTTPS" : "HTTP"
       backend_port      = local.broker_port
       target_type       = "ip"
+      health_check = {
+        enabled             = true
+        interval            = 30
+        path                = "/healthcheck"
+        port                = "traffic-port"
+        healthy_threshold   = 3
+        unhealthy_threshold = 3
+        timeout             = 10
+        protocol            = var.use_private_ssl_cert ? "HTTPS" : "HTTP"
+        matcher             = "200-299"
+      }
     }
   ]
 
