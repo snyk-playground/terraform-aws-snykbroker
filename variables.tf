@@ -1,3 +1,10 @@
+# SnykBroker vpc
+variable "vpc_cidr" {
+  description = "SnykBroker VPC cidr. Linked to service_azs to be created"
+  type        = string
+  default     = "192.168.0.0/20"
+}
+
 variable "service_azs" {
   description = "count of service availability zones to use"
   type        = number
@@ -34,18 +41,6 @@ variable "container_name" {
   default     = "snykbroker"
 }
 
-variable "service_task_network_mode" {
-  description = "Network mode used for containers in task"
-  type        = string
-  default     = "awsvpc"
-}
-
-variable "attach_to_load_balancer" {
-  description = "Whether to attach load balancer to broker service"
-  type        = bool
-  default     = false
-}
-
 variable "cloudwatch_log_group_name" {
   description = "SnykBroker CloudWatch log group name"
   type        = string
@@ -55,7 +50,7 @@ variable "cloudwatch_log_group_name" {
 variable "cloudwatch_log_retention_days" {
   description = "SnykBroker CloudWatch log retention in days"
   type        = number
-  default     = 1
+  default     = 7
 }
 
 # Snyk broker Task specifications
@@ -95,7 +90,7 @@ variable "snyk_integration_env_vars" {
 # see https://github.com/snyk/broker
 # user specified environment key-value pairs should include all required ones at snyk_integration_env_vars
 variable "broker_env_vars" {
-  description = "Map of Snyk broker environment variables key-value pairs"
+  description = "SnykBroker environment variables key-value pairs. PORT, BROKER_CLIENT_URL not required"
   type        = map(string)
   default     = {}
   sensitive   = true
@@ -114,8 +109,14 @@ variable "snykbroker_repo" {
   default     = "snyk/broker"
 }
 
-variable "default_broker_port" {
-  description = "Default snykbroker client port"
+variable "broker_protocol" {
+  description = "Protocol for running connections to SnykBroker. Either http or https"
+  type        = string
+  default     = "https"
+}
+
+variable "broker_port" {
+  description = "Default snykbroker client port. Set a non-system port i.e. >= 1024 as container run-as non-root user"
   type        = number
   default     = 7341
 }
@@ -139,7 +140,7 @@ variable "image" {
 }
 
 variable "integration_type" {
-  description = "Snyk Integration type.Current supported are GitHub.com, GitHub-Enterprise. "
+  description = "Snyk Integration type. Choice of artifactory, azurerepos, bitbucket, gh, ghe, gitlab, jira or nexus"
   type        = string
   default     = ""
 }
@@ -156,6 +157,14 @@ variable "tags" {
   default     = {}
 }
 
+variable "default_tags" {
+  description = "Default Tags at aws provider scope"
+  type        = map(string)
+  default     = {
+    "Snyk" = "SnykBroker"
+  }
+}
+
 # Credentials to DockerHub for pull of snyk broker image
 variable "dockerhub_username" {
   description = "DockerHub username"
@@ -169,4 +178,54 @@ variable "dockerhub_access_token" {
   type        = string
   default     = null
   sensitive   = true
+}
+
+variable "public_domain_name" {
+  description = "Customer public domain e.g. example.com"
+  type        = string
+  default     = null
+}
+
+variable "broker_hostname" {
+  description = "SnykBroker hostname. <broker_hostname>.<public_domain_name> forms its FQDN for SCM webhooks calls"
+  type        = string
+  default     = "snykbroker"
+}
+
+variable "use_existing_route53_zone" {
+  description = "Use existing public hosted zone of <public_domain_name> or create new zone"
+  type        = bool
+  default     = true
+}
+
+# handling of SnykBroker private key and cert usage
+variable "use_private_ssl_cert" {
+  description = "Use private SSL certificate at SnykBroker client"
+  type        = bool
+  default     = true
+}
+
+variable "cert_bucket_name" {
+  description = "S3 bucket name storing SnykBroker private key, SSL certificate"
+  type        = string
+  default     = null
+}
+
+variable "broker_private_key_object" {
+  description = "S3 object of SnykBroker certificate private key. Example <s3folder>/<name>.key"
+  type        = string
+  default     = null
+}
+
+variable "broker_ssl_cert_object" {
+  description = "S3 object of SnykBroker certificate. Example <s3folder>/<name>.pem"
+  type        = string
+  default     = null
+}
+
+# Lambda related variable
+variable "lambda_runtime" {
+  description = "Lambda function runtime. Defined by AWS supported versions."
+  type        = string
+  default     = "python3.9"
 }
