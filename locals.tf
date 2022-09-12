@@ -9,9 +9,12 @@ locals {
   broker_client_url     = format("%s://%s:%s", var.broker_protocol, try(values(module.snykbroker_lb_route53_record.route53_record_fqdn)[0], module.snykbroker_lb.lb_dns_name), local.broker_lb_port)
   # certificate env vars
   mount_path            = "/mnt/shared"
-  cert_env_vars         = var.use_private_ssl_cert ? tomap({
+  cert_env_vars         = var.private_ssl_cert ? tomap({
     "HTTPS_CERT" = format("%s/%s", local.mount_path, element(split("/", var.broker_ssl_cert_object), length(split("/", var.broker_ssl_cert_object))-1))
     "HTTPS_KEY"  = format("%s/%s", local.mount_path, element(split("/", var.broker_private_key_object), length(split("/", var.broker_private_key_object))-1))
+  }) : {}
+  listing_filter_env_var = var.custom_listing_filter ? tomap({
+    "ACCEPT" = format("%s/%s", local.mount_path, element(split("/", var.broker_accept_json_object), length(split("/", var.broker_accept_json_object))-1))
   }) : {}
   computed_env_vars     = {
     "BROKER_CLIENT_URL" = local.broker_client_url
@@ -25,8 +28,9 @@ locals {
   broker_env_vars       = merge({
     for v in local.env_vars : v => lookup(var.broker_env_vars, v, "")
       if length(regexall("(TOKEN)$", v)) == 0
-  }, local.computed_env_vars, local.cert_env_vars, var.additional_env_vars)
+  }, local.computed_env_vars, local.cert_env_vars, local.listing_filter_env_var, var.additional_env_vars)
 
   # remove trailing dot from domain if any
   domain_name = trimsuffix(var.public_domain_name, ".")
+  attach_config  = var.private_ssl_cert || var.custom_listing_filter
 }

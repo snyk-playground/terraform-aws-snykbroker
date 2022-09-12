@@ -44,7 +44,36 @@ This Environment variable value is specified as a map(string). Example:
 
 ### Command Line Interface method
 
-The general steps are:
+### Deployment Modes
+
+| Mode       | Description                                       | Variable Settings                              |
+|------------|---------------------------------------------------|------------------------------------------------|
+| HTTP       | No SSL certificate                                | broker_protocol="http", private_ssl_cert=false |
+| HTTPS/HTTP | Public SSL certificate, internal HTTP             | broker_protocol="https", private_ssl_cert=false |
+| HTTPS      | Public SSL certificate, internal private SSL cert | broker_protocol="https", private_ssl_cert=true |
+
+#### Public SSL certificate
+
+Public SSL certificate for `<broker_hostname>.<public_domain_name>` is created and managed by AWS Certificate Manager (ACM) with its renewal automatically handled.
+
+#### Private SSL certificate/Key
+
+* Upload private SSL certificate (.pem) and its private key (.key) to a S3 bucket
+* Verify S3 bucket and these objects are accessible to Terraform assumed credentials
+* Set variable `config_bucket_name="<S3_bucket_name>"` 
+* Set variable `broker_private_key_object="<S3_folder>/<key_name.key>"`
+* Set variable `broker_ssl_cert_object="<S3_folder>/<cert_name.pem>"`
+
+Private SSL certificate validity and renewal are handled independently by Customer.
+
+#### Custom approved listing filter
+
+* Upload custom [integration type](https://github.com/snyk/broker/tree/master/client-templates) accept.json to S3 bucket
+* Verify S3 bucket and accept.json are accessible to Terraform assumed credentials
+* Set variable `config_bucket_name="<S3_bucket_name>"`
+* Set variable `custom_listing_filter="<S3_folder>/accept.json"`
+
+### Deployment steps
 
 1. Configure S3 backend for terraform state
 2. Setup Terraform input tfvars
@@ -54,28 +83,6 @@ $ terraform init -backend-config="env/dev/config.s3.tfbackend"
 $ terraform plan -input=false -var-file="env/dev/terraform.tfvars" -out=tfplan
 $ terraform apply "tfplan"
 ```
-
-### Deployment Modes
-
-| Mode       | Description                                       | Variable Settings                                   |
-|------------|---------------------------------------------------|-----------------------------------------------------|
-| HTTP       | No SSL certificate                                | broker_protocol="http", use_private_ssl_cert=false  |
-| HTTPS/HTTP | Public SSL certificate, internal HTTP             | broker_protocol="https", use_private_ssl_cert=false |
-| HTTPS      | Public SSL certificate, internal private SSL cert | broker_protocol="https", use_private_ssl_cert=true  |
-
-#### Public SSL certificate
-
-Public SSL certificate for `<broker_hostname>.<public_domain_name>` is created and managed by AWS Certificate Manager (ACM) with its renewal automatically handled.
-
-#### Private SSL certificate/Key
-
-* Upload private SSL certificate (.pem) and its private key (.key) to a S3 bucket
-* Ensure S3 bucket and these 2 objects are accessible to Terraform assumed credentials
-* Set variable `cert_bucket_name="<S3_bucket_name>"` 
-* Set variable `broker_private_key_object="<S3_folder>/<key_name.key>"`
-* Set variable `broker_ssl_cert_object="<S3_folder>/<cert_name.pem>"`
-
-Private SSL certificate validity and renewal are handled independently by Customer.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -138,26 +145,33 @@ Private SSL certificate validity and renewal are handled independently by Custom
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_additional_env_vars"></a> [additional\_env\_vars](#input\_additional\_env\_vars) | Additional environment variables | `map(string)` | `{}` |    no    |
+| <a name="input_broker_accept_json_object"></a> [broker\_accept\_json\_object](#input\_broker\_accept\_json\_object) | S3 object of SnykBroker listing filter accept.json. Example <s3folder>/accept.json | `string` | `null` |    no    |
 | <a name="input_broker_env_vars"></a> [broker\_env\_vars](#input\_broker\_env\_vars) | SnykBroker environment variables key-value pairs. PORT, BROKER\_CLIENT\_URL not required | `map(string)` | `{}` |   yes    |
 | <a name="input_broker_hostname"></a> [broker\_hostname](#input\_broker\_hostname) | SnykBroker hostname. <broker\_hostname>.<public\_domain\_name> forms its FQDN for SCM webhooks calls | `string` | `"snykbroker"` |    no    |
 | <a name="input_broker_port"></a> [broker\_port](#input\_broker\_port) | Default snykbroker client port. Set a non-system port i.e. >= 1024 as container run-as non-root user | `number` | `7341` |    no    |
 | <a name="input_broker_private_key_object"></a> [broker\_private\_key\_object](#input\_broker\_private\_key\_object) | S3 object of SnykBroker certificate private key. Example <s3folder>/<name>.key | `string` | `null` |    no    |
 | <a name="input_broker_protocol"></a> [broker\_protocol](#input\_broker\_protocol) | Protocol for running connections to SnykBroker. Either http or https | `string` | `"https"` |    no    |
 | <a name="input_broker_ssl_cert_object"></a> [broker\_ssl\_cert\_object](#input\_broker\_ssl\_cert\_object) | S3 object of SnykBroker certificate. Example <s3folder>/<name>.pem | `string` | `null` |    no    |
-| <a name="input_cert_bucket_name"></a> [cert\_bucket\_name](#input\_cert\_bucket\_name) | S3 bucket name storing SnykBroker private key, SSL certificate | `string` | `null` |    no    |
 | <a name="input_cloudwatch_log_group_name"></a> [cloudwatch\_log\_group\_name](#input\_cloudwatch\_log\_group\_name) | SnykBroker CloudWatch log group name | `string` | `"/aws/ecs/snykbroker"` |    no    |
 | <a name="input_cloudwatch_log_retention_days"></a> [cloudwatch\_log\_retention\_days](#input\_cloudwatch\_log\_retention\_days) | SnykBroker CloudWatch log retention in days | `number` | `7` |    no    |
+| <a name="input_config_bucket_name"></a> [config\_bucket\_name](#input\_config\_bucket\_name) | Configuration S3 bucket name storing SnykBroker private key, SSL certificate, accept.json filter, etc | `string` | `null` |    no    |
 | <a name="input_container_name"></a> [container\_name](#input\_container\_name) | Snyk broker container name behind the Service | `string` | `"snykbroker"` |    no    |
 | <a name="input_cpu"></a> [cpu](#input\_cpu) | Broker service task CPU. min 256 i.e. 0.25 vCPU, max 4096 i.e. 4 vCPU | `number` | `256` |    no    |
+| <a name="input_custom_listing_filter"></a> [custom\_listing\_filter](#input\_custom\_listing\_filter) | Use custom approved listing filter i.e. a revised accept.json | `bool` | `false` |    no    |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default Tags at aws provider scope | `map(string)` | <pre>{<br>  "Snyk": "SnykBroker"<br>}</pre> |    no    |
 | <a name="input_dockerhub_access_token"></a> [dockerhub\_access\_token](#input\_dockerhub\_access\_token) | DockerHub personal access token | `string` | `null` |    no    |
 | <a name="input_dockerhub_username"></a> [dockerhub\_username](#input\_dockerhub\_username) | DockerHub username | `string` | `null` |    no    |
+| <a name="input_fargate_capacity_base"></a> [fargate\_capacity\_base](#input\_fargate\_capacity\_base) | Fargate capacity provider base as minimum number of Tasks. Only this or fargate\_spot\_capacity\_base can be >0 | `number` | `0` |    no    |
+| <a name="input_fargate_capacity_weight"></a> [fargate\_capacity\_weight](#input\_fargate\_capacity\_weight) | Fargate capacity provider weight as a relative percentage of total service\_desired\_count Tasks | `number` | `50` |    no    |
+| <a name="input_fargate_spot_capacity_base"></a> [fargate\_spot\_capacity\_base](#input\_fargate\_spot\_capacity\_base) | Fargate Spot capacity provider base as minimum number of Tasks. Only this or fargate\_capacity\_base can be >0 | `number` | `0` |    no    |
+| <a name="input_fargate_spot_capacity_weight"></a> [fargate\_spot\_capacity\_weight](#input\_fargate\_spot\_capacity\_weight) | Fargate Spot capacity provider weight as a relative percentage of total service\_desired\_count Tasks | `number` | `50` |    no    |
 | <a name="input_image"></a> [image](#input\_image) | Broker image to pull from DockerHub. May be custom derived broker image | `string` | `null` |    no    |
 | <a name="input_integration_type"></a> [integration\_type](#input\_integration\_type) | Snyk Integration type. Choice of artifactory, azurerepos, bitbucket, gh, ghe, gitlab, jira or nexus | `string` | `""` |   yes    |
 | <a name="input_lambda_runtime"></a> [lambda\_runtime](#input\_lambda\_runtime) | Lambda function runtime. Defined by AWS supported versions. | `string` | `"python3.9"` |    no    |
 | <a name="input_launch_type"></a> [launch\_type](#input\_launch\_type) | SnykBroker service launch type | `string` | `"FARGATE"` |    no    |
 | <a name="input_log_bucket_name"></a> [log\_bucket\_name](#input\_log\_bucket\_name) | snykbbroker requests access log bucket name for logging webhooks requests | `string` | `null` |    no    |
 | <a name="input_memory"></a> [memory](#input\_memory) | Broker service memory in MiB. Min 512, max 30720 | `number` | `512` |    no    |
+| <a name="input_private_ssl_cert"></a> [private\_ssl\_cert](#input\_private\_ssl\_cert) | Use private SSL certificate at SnykBroker client | `bool` | `false` |    no    |
 | <a name="input_public_domain_name"></a> [public\_domain\_name](#input\_public\_domain\_name) | Customer public domain e.g. example.com | `string` | `null` |   yes    |
 | <a name="input_scheduling_strategy"></a> [scheduling\_strategy](#input\_scheduling\_strategy) | Snyk broker scheduling strategy | `string` | `"REPLICA"` |    no    |
 | <a name="input_service_azs"></a> [service\_azs](#input\_service\_azs) | count of service availability zones to use | `number` | `2` |    no    |
@@ -168,15 +182,14 @@ Private SSL certificate validity and renewal are handled independently by Custom
 | <a name="input_snykbroker_repo"></a> [snykbroker\_repo](#input\_snykbroker\_repo) | DockerHub snyk broker repo | `string` | `"snyk/broker"` |    no    |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags | `map(string)` | `{}` |    no    |
 | <a name="input_use_existing_route53_zone"></a> [use\_existing\_route53\_zone](#input\_use\_existing\_route53\_zone) | Use existing public hosted zone of <public\_domain\_name> or create new zone | `bool` | `true` |    no    |
-| <a name="input_use_private_ssl_cert"></a> [use\_private\_ssl\_cert](#input\_use\_private\_ssl\_cert) | Use private SSL certificate at SnykBroker client | `bool` | `true` |    no    |
 | <a name="input_vpc_cidr"></a> [vpc\_cidr](#input\_vpc\_cidr) | SnykBroker VPC cidr. Linked to service\_azs to be created | `string` | `"192.168.0.0/20"` |    no    |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_aws_broker_dns_name"></a> [aws\_broker\_dns\_name](#output\_aws\_broker\_dns\_name) | AWS generated SnykBroker Client DNS name |
+| <a name="output_snykbroker_aws_dns_name"></a> [snykbroker\_aws\_dns\_name](#output\_snykbroker\_aws\_dns\_name) | SnykBroker Client AWS DNS name |
 | <a name="output_snykbroker_client_healthcheck_url"></a> [snykbroker\_client\_healthcheck\_url](#output\_snykbroker\_client\_healthcheck\_url) | SnykBroker Client healthcheck URL |
 | <a name="output_snykbroker_client_systemcheck_url"></a> [snykbroker\_client\_systemcheck\_url](#output\_snykbroker\_client\_systemcheck\_url) | SnykBroker Client systemcheck URL |
-| <a name="output_snykbroker_lb_dns_name"></a> [snykbroker\_lb\_dns\_name](#output\_snykbroker\_lb\_dns\_name) | SnykBroker Client load balancer DNS name |
+| <a name="output_snykbroker_lb_dns_name"></a> [snykbroker\_lb\_dns\_name](#output\_snykbroker\_lb\_dns\_name) | SnykBroker Client hosted domain DNS name |
 <!-- END_TF_DOCS -->

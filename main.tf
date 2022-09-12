@@ -83,7 +83,7 @@ module "snykbroker_security_group" {
   number_of_computed_ingress_with_source_security_group_id = 1
   egress_cidr_blocks      = ["0.0.0.0/0"]
   egress_rules            = ["https-443-tcp"]
-  egress_with_source_security_group_id = var.use_private_ssl_cert ? [
+  egress_with_source_security_group_id = local.attach_config ? [
     {
       rule                     = "nfs-tcp"
       source_security_group_id = module.snykbroker_efs[0].sg_id
@@ -110,9 +110,11 @@ module "snykbroker_ecs_cluster" {
 
   cluster_configuration = {
     execute_command_configuration = {
-      logging = "OVERRIDE"
+      kms_key_id = module.snykbroker_kms.key_arn
+      logging    = "OVERRIDE"
       log_configuration = {
-        cloud_watch_log_group_name = module.snykbroker_log_group.cloudwatch_log_group_name
+        cloud_watch_encryption_enabled = true
+        cloud_watch_log_group_name     = module.snykbroker_log_group.cloudwatch_log_group_name
       }
     }
   }
@@ -120,12 +122,14 @@ module "snykbroker_ecs_cluster" {
   fargate_capacity_providers = {
     FARGATE = {
       default_capacity_provider_strategy = {
-        weight = 50
+        base   = var.fargate_capacity_base
+        weight = var.fargate_capacity_weight
       }
     }
     FARGATE_SPOT = {
       default_capacity_provider_strategy = {
-        weight = 50
+        base   = var.fargate_spot_capacity_base
+        weight = var.fargate_spot_capacity_weight
       }
     }
   }
@@ -156,7 +160,7 @@ module "snykbroker_ecs_task_definition" {
 
   task_stop_timeout = 90
 
-  task_mount_points = var.use_private_ssl_cert ? [
+  task_mount_points = local.attach_config ? [
     {
       sourceVolume  = var.service_name
       containerPath = local.mount_path
@@ -165,7 +169,7 @@ module "snykbroker_ecs_task_definition" {
   ] : []
 
   # volume name corresponds to sourceVolume which will contain a cert directory with cert injected by a lambda function
-  volume = var.use_private_ssl_cert ? [
+  volume = local.attach_config ? [
     {
       name = var.service_name
       efs_volume_configuration = [
@@ -205,7 +209,7 @@ module "snykbroker_lb" {
   target_groups = [
     {
       name_prefix       = "snyk-"
-      backend_protocol  = var.use_private_ssl_cert ? "HTTPS" : "HTTP"
+      backend_protocol  = var.private_ssl_cert ? "HTTPS" : "HTTP"
       backend_port      = local.broker_port
       target_type       = "ip"
       health_check = {
@@ -216,7 +220,7 @@ module "snykbroker_lb" {
         healthy_threshold   = 3
         unhealthy_threshold = 3
         timeout             = 10
-        protocol            = var.use_private_ssl_cert ? "HTTPS" : "HTTP"
+        protocol            = var.private_ssl_cert ? "HTTPS" : "HTTP"
         matcher             = "200-299"
       }
     }
@@ -243,7 +247,7 @@ module "snykbroker_lb" {
 }
 
 module "snykbroker_efs" {
-  count   = var.use_private_ssl_cert ? 1 : 0
+  count   = local.attach_config ? 1 : 0
   source  = "terraform-iaac/efs/aws"
   version = "2.0.4"
   # insert the 5 required variables here
