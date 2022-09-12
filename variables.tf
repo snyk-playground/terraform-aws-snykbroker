@@ -41,6 +41,30 @@ variable "container_name" {
   default     = "snykbroker"
 }
 
+variable "fargate_capacity_base" {
+  description = "Fargate capacity provider base as minimum number of Tasks. Only this or fargate_spot_capacity_base can be >0"
+  type        = number
+  default     = 0
+}
+
+variable "fargate_capacity_weight" {
+  description = "Fargate capacity provider weight as a relative percentage of total service_desired_count Tasks"
+  type        = number
+  default     = 50
+}
+
+variable "fargate_spot_capacity_base" {
+  description = "Fargate Spot capacity provider base as minimum number of Tasks. Only this or fargate_capacity_base can be >0"
+  type        = number
+  default     = 0
+}
+
+variable "fargate_spot_capacity_weight" {
+  description = "Fargate Spot capacity provider weight as a relative percentage of total service_desired_count Tasks"
+  type        = number
+  default     = 50
+}
+
 variable "cloudwatch_log_group_name" {
   description = "SnykBroker CloudWatch log group name"
   type        = string
@@ -199,14 +223,20 @@ variable "use_existing_route53_zone" {
 }
 
 # handling of SnykBroker private key and cert usage
-variable "use_private_ssl_cert" {
+variable "private_ssl_cert" {
   description = "Use private SSL certificate at SnykBroker client"
   type        = bool
-  default     = true
+  default     = false
 }
 
-variable "cert_bucket_name" {
-  description = "S3 bucket name storing SnykBroker private key, SSL certificate"
+variable "custom_listing_filter" {
+  description = "Use custom approved listing filter i.e. a revised accept.json"
+  type        = bool
+  default     = false
+}
+
+variable "config_bucket_name" {
+  description = "Configuration S3 bucket name storing SnykBroker private key, SSL certificate, accept.json filter, etc"
   type        = string
   default     = null
 }
@@ -219,6 +249,12 @@ variable "broker_private_key_object" {
 
 variable "broker_ssl_cert_object" {
   description = "S3 object of SnykBroker certificate. Example <s3folder>/<name>.pem"
+  type        = string
+  default     = null
+}
+
+variable "broker_accept_json_object" {
+  description = "S3 object of SnykBroker listing filter accept.json. Example <s3folder>/accept.json"
   type        = string
   default     = null
 }
