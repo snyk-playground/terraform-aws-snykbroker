@@ -92,6 +92,7 @@ variable "snyk_integration_images" {
     "artifactory" = "artifactory"
     "nexus"       = "nexus"
     "jira"        = "jira"
+    "cra"         = "container-registry-agent"
   }
 }
 
@@ -108,6 +109,7 @@ variable "snyk_integration_env_vars" {
     "artifactory" = ["BROKER_TOKEN", "ARTIFACTORY_URL"]
     "nexus"       = ["BROKER_TOKEN", "BASE_NEXUS_URL", "BROKER_CLIENT_VALIDATION_URL", "RES_BODY_URL_SUB"]
     "jira"        = ["BROKER_TOKEN", "JIRA_USERNAME", "JIRA_PASSWORD", "JIRA_HOSTNAME", "BROKER_CLIENT_URL", "PORT"]
+    "cra"         = ["BROKER_TOKEN", "BROKER_CLIENT_URL", "CR_AGENT_URL", "CR_TYPE", "CR_BASE", "CR_USERNAME", "CR_PASSWORD", "CR_TOKEN", "CR_REGION", "PORT"]
   }
 }
 
@@ -164,7 +166,7 @@ variable "image" {
 }
 
 variable "integration_type" {
-  description = "Snyk Integration type. Choice of artifactory, azurerepos, bitbucket, gh, ghe, gitlab, jira or nexus"
+  description = "Snyk Integration type. Choice of artifactory, azurerepos, bitbucket, gh, ghe, gitlab, jira, nexus or cra"
   type        = string
   default     = ""
 }
@@ -264,4 +266,76 @@ variable "lambda_runtime" {
   description = "Lambda function runtime. Defined by AWS supported versions."
   type        = string
   default     = "python3.9"
+}
+
+# see https://docs.snyk.io/enterprise-setup/snyk-broker/snyk-broker-container-registry-agent#supported-container-registries
+#variable "cr_type" {
+#  description = "Container registry type"
+#  type        = string
+#  default     = null
+#  validation {
+#    condition = var.cr_type == null || can(regex("^(artifactory-cr|harbor-cr|acr|gcr|ecr|google-artifact-cr|docker-hub|quay-cr|nexus-cr|github-cr|digitalocean-cr|gitlab-cr)$", var.cr_type))
+#    error_message = "CR_TYPE can only be set to supported container registries"
+#  }
+#}
+
+variable "cra_name" {
+  description = "Container registry agent service name"
+  type        = string
+  default     = "snykcra"
+}
+
+variable "cra_desired_count" {
+  description = "Snyk Container registry agent instance count"
+  type        = number
+  default     = 1
+}
+
+variable "cra_hostname" {
+  description = "Container registry agent hostname. <cra_hostname>.<public_domain_name> forms its FQDN"
+  type        = string
+  default     = "snykcra"
+}
+
+variable "cra_port" {
+  description = "Default container registry agent port. Set a non-system port i.e. >= 1024 as container run-as non-root user"
+  type        = number
+  default     = 8081
+}
+
+variable "cra_container_name" {
+  description = "Container registry agent container name at ECS cluster"
+  type        = string
+  default     = "snykcra"
+}
+
+variable "cra_repo" {
+  description = "Container registry agent repository for pulling images"
+  type        = string
+  default     = "snyk/container-registry-agent"
+}
+
+variable "cra_image_tag" {
+  description = "Container registry agent image tag"
+  type        = string
+  default     = "latest"
+}
+
+# handling of Container registry agent private key and cert usage
+variable "cra_private_ssl_cert" {
+  description = "Use private SSL certificate at Snyk Container registry agent"
+  type        = bool
+  default     = false
+}
+
+variable "cra_private_key_object" {
+  description = "S3 object of Container registry agent certificate private key. Example <s3folder>/<name>.key"
+  type        = string
+  default     = null
+}
+
+variable "cra_ssl_cert_object" {
+  description = "S3 object of Container registry agent certificate. Example <s3folder>/<name>.crt"
+  type        = string
+  default     = null
 }

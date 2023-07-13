@@ -104,7 +104,8 @@ resource "aws_lambda_invocation" "snykbroker_lambda_invocation" {
     "bucket_name" = var.config_bucket_name
     "s3_objects"  = concat(
       var.private_ssl_cert ? [var.broker_private_key_object, var.broker_ssl_cert_object] : [],
-      var.custom_listing_filter ? [var.broker_accept_json_object] : [])
+      var.custom_listing_filter ? [var.broker_accept_json_object] : [],
+      var.cra_private_ssl_cert ? [var.cra_private_key_object, var.cra_ssl_cert_object] : [])
   })
   depends_on = [null_resource.wait_lambda_efs]
 }
