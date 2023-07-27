@@ -88,6 +88,12 @@ data "aws_iam_policy_document" "cra_ecr_policy_doc" {
       "ecr:GetRepositoryPolicy",
       "ecr:GetLifecyclePolicy",
     ]
+    resources = ["arn:aws:ecr:*:*:repository/*"]
+  }
+  statement {
+    actions = [
+      "ecr:GetAuthorizationToken",
+    ]
     resources = ["*"]
   }
 }
